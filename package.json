@@ -1,0 +1,13 @@
+{
+  "name": "air-quality-intelligence",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@12.18.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter './apps/*' --filter './workers/*' dev",
+    "build": "pnpm --recursive build",
+    "test": "pnpm --recursive test",
+    "lint": "pnpm --recursive lint",
+    "format": "pnpm --recursive format"
+  }
+}
