@@ -1,6 +1,6 @@
 import { checkDatabaseConnection } from "./infrastructure/database/client.js";
 import { checkRedisConnection } from "./infrastructure/redis/client.js";
-import "./config/env.js";
+import { env } from "./config/env.js";
 import Fastify from "fastify";
 
 const app = Fastify({
@@ -16,8 +16,12 @@ app.get("/health", async () => {
 
 const start = async () => {
   try {
+    const database = await checkDatabaseConnection();
+    const redis = await checkRedisConnection();
+
+    app.log.info({ database, redis }, "Database and Redis connections verified");
     await app.listen({
-      port: 3001,
+      port: env.PORT,
       host: "0.0.0.0",
     });
   } catch (error) {

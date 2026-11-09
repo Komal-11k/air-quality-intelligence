@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@12.18.0",
   "scripts": {
-    "dev": "pnpm --parallel --filter './apps/*' --filter './workers/*' dev",
+    "dev": "pnpm --parallel --filter @air-quality/api --filter web dev",
     "build": "pnpm --recursive build",
     "test": "pnpm --recursive test",
     "lint": "pnpm --recursive lint",
