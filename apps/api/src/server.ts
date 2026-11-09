@@ -11,9 +11,26 @@ import { alertsRoutes } from "./modules/alerts/alerts.routes.js";
 import { assistantRoutes } from "./modules/assistant/assistant.routes.js";
 import { env } from "./config/env.js";
 import Fastify from "fastify";
+import { ZodError } from "zod";
 
 const app = Fastify({
   logger: true,
+});
+
+app.setErrorHandler((error, request, reply) => {
+  if (error instanceof ZodError) {
+    return reply.status(400).send({
+      error: "ValidationError",
+      message: error.message,
+    });
+  }
+
+  request.log.error(error);
+
+  return reply.status(500).send({
+    error: "InternalServerError",
+    message: "An unexpected error occurred",
+  });
 });
 
 await app.register(locationsRoutes);
