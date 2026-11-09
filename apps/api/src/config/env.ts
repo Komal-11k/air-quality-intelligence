@@ -11,6 +11,8 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1),
 
   OPENAQ_API_KEY: z.string().min(1).optional(),
+
+  GEMINI_API_KEY: z.string().min(1)
 });
 
 export const env = envSchema.parse(process.env);

@@ -8,6 +8,7 @@ import { comparisonRoutes } from "./modules/comparison/comparison.routes.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { forecastRoutes } from "./modules/forecast/forecast.routes.js";
 import { alertsRoutes } from "./modules/alerts/alerts.routes.js";
+import { assistantRoutes } from "./modules/assistant/assistant.routes.js";
 import { env } from "./config/env.js";
 import Fastify from "fastify";
 
@@ -22,6 +23,7 @@ await app.register(historyRoutes);
 await app.register(comparisonRoutes);
 await app.register(forecastRoutes);
 await app.register(alertsRoutes);
+await app.register(assistantRoutes);
 await app.register(healthRoutes);
 
 const start = async () => {
