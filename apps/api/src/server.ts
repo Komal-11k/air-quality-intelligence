@@ -6,6 +6,7 @@ import { checkRedisConnection } from "./infrastructure/redis/client.js";
 import { historyRoutes } from "./modules/history/history.routes.js";
 import { comparisonRoutes } from "./modules/comparison/comparison.routes.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
+import { forecastRoutes } from "./modules/forecast/forecast.routes.js";
 import { env } from "./config/env.js";
 import Fastify from "fastify";
 
@@ -18,6 +19,7 @@ await app.register(measurementsRoutes);
 await app.register(aqiRoutes);
 await app.register(historyRoutes);
 await app.register(comparisonRoutes);
+await app.register(forecastRoutes);
 await app.register(healthRoutes);
 
 const start = async () => {
