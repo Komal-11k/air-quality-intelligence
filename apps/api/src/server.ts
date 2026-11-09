@@ -3,6 +3,7 @@ import { measurementsRoutes } from "./modules/measurements/measurements.routes.j
 import { aqiRoutes } from "./modules/aqi/aqi.routes.js";
 import { checkDatabaseConnection } from "./infrastructure/database/client.js";
 import { checkRedisConnection } from "./infrastructure/redis/client.js";
+import { historyRoutes } from "./modules/history/history.routes.js";
 import { env } from "./config/env.js";
 import Fastify from "fastify";
 
@@ -13,6 +14,7 @@ const app = Fastify({
 await app.register(locationsRoutes);
 await app.register(measurementsRoutes);
 await app.register(aqiRoutes);
+await app.register(historyRoutes);
 
 app.get("/health", async () => {
   return {
