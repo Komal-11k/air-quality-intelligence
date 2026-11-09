@@ -5,6 +5,7 @@ import { checkDatabaseConnection } from "./infrastructure/database/client.js";
 import { checkRedisConnection } from "./infrastructure/redis/client.js";
 import { historyRoutes } from "./modules/history/history.routes.js";
 import { comparisonRoutes } from "./modules/comparison/comparison.routes.js";
+import { healthRoutes } from "./modules/health/health.routes.js";
 import { env } from "./config/env.js";
 import Fastify from "fastify";
 
@@ -17,13 +18,7 @@ await app.register(measurementsRoutes);
 await app.register(aqiRoutes);
 await app.register(historyRoutes);
 await app.register(comparisonRoutes);
-
-app.get("/health", async () => {
-  return {
-    status: "ok",
-    service: "air-quality-api",
-  };
-});
+await app.register(healthRoutes);
 
 const start = async () => {
   try {
