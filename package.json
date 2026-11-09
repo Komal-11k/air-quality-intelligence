@@ -2,6 +2,7 @@
   "name": "air-quality-intelligence",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@12.18.0",
   "scripts": {
     "dev": "pnpm --parallel --filter @air-quality/api --filter web dev",
@@ -9,5 +10,10 @@
     "test": "pnpm --recursive test",
     "lint": "pnpm --recursive lint",
     "format": "pnpm --recursive format"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1"
   }
 }
