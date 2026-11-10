@@ -13,6 +13,7 @@ import { spatialRoutes } from "./modules/spatial/spatial.routes.js";
 import { env } from "./config/env.js";
 import Fastify from "fastify";
 import { ZodError } from "zod";
+import cors from "@fastify/cors";
 
 const app = Fastify({
   logger: true,
@@ -33,7 +34,9 @@ app.setErrorHandler((error, request, reply) => {
     message: "An unexpected error occurred",
   });
 });
-
+await app.register(cors, {
+  origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+});
 await app.register(locationsRoutes);
 await app.register(measurementsRoutes);
 await app.register(aqiRoutes);
