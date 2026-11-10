@@ -37,3 +37,27 @@ export type SpatialHeatmapQuery = z.infer<
 export type SpatialHeatmapResponse = z.infer<
   typeof spatialHeatmapResponseSchema
 >;
+
+export const spatialStationResponseSchema = z.object({
+  id: z.string(),
+  locationId: z.string(),
+  latitude: z.number(),
+  longitude: z.number(),
+  pollutant: z.string(),
+  value: z.number(),
+  unit: z.string(),
+  measuredAt: z.string(),
+});
+
+export const spatialStationsResponseSchema = z.object({
+  pollutant: z.string(),
+  stations: z.array(spatialStationResponseSchema),
+});
+
+export type SpatialStationResponse = z.infer<
+  typeof spatialStationResponseSchema
+>;
+
+export type SpatialStationsResponse = z.infer<
+  typeof spatialStationsResponseSchema
+>;

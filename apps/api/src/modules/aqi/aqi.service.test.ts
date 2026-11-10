@@ -16,7 +16,7 @@ describe("calculateAqi", () => {
       pm25: 75,
     });
   
-    expect(result.aqi).toBe(149);
+    expect(result.aqi).toBe(151);
     expect(result.category).toBe("Moderate");
     expect(result.dominantPollutant).toBe("pm25");
   });

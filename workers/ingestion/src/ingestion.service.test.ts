@@ -5,25 +5,32 @@ describe("IngestionService", () => {
   const createDependencies = () => ({
     openAQClient: {
       getLocation: vi.fn(),
+      getLocations: vi.fn(),
       getSensors: vi.fn(),
       getLatestMeasurements: vi.fn(),
+      getParameters: vi.fn().mockResolvedValue({
+        results: [],
+      }),
+      getParameterLatest: vi.fn(),
     },
-
+  
     openMeteoClient: {
       getAirQuality: vi.fn(),
     },
-
+  
     locationRepository: {
       upsertLocation: vi.fn(),
     },
-
+  
     measurementRepository: {
       insertMeasurements: vi.fn(),
     },
-
+  
     forecastRepository: {
       insertForecasts: vi.fn(),
     },
+
+    openAQWorldwideMaxAgeHours: 24,
   });
 
   const createLogger = () => ({
@@ -140,7 +147,6 @@ describe("IngestionService", () => {
     dependencies.forecastRepository.insertForecasts.mockResolvedValue(
       12,
     );
-
     const service = new IngestionService(
       dependencies,
       logger,
@@ -336,4 +342,179 @@ describe("IngestionService", () => {
       "[ingestion] cycle completed",
     );
   });
+
+  it("ingests fresh worldwide OpenAQ measurements and ignores stale data", async () => {
+  const dependencies = createDependencies();
+  const logger = createLogger();
+
+  dependencies.openAQClient.getParameters.mockResolvedValue({
+    meta: {
+      name: "openaq-api",
+      website: "https://openaq.org",
+      page: 1,
+      limit: 100,
+      found: 6,
+    },
+    results: [
+      {
+        id: 1,
+        name: "pm10",
+        units: "µg/m³",
+        displayName: "PM10",
+      },
+      {
+        id: 2,
+        name: "pm25",
+        units: "µg/m³",
+        displayName: "PM2.5",
+      },
+      {
+        id: 5,
+        name: "no2",
+        units: "µg/m³",
+        displayName: "NO2",
+      },
+      {
+        id: 3,
+        name: "o3",
+        units: "µg/m³",
+        displayName: "O3",
+      },
+      {
+        id: 6,
+        name: "so2",
+        units: "µg/m³",
+        displayName: "SO2",
+      },
+      {
+        id: 4,
+        name: "co",
+        units: "µg/m³",
+        displayName: "CO",
+      },
+    ],
+  });
+
+  const freshMeasurement = {
+    datetime: {
+      utc: new Date(
+        Date.now() - 60 * 60 * 1000,
+      ).toISOString(),
+      local: "2026-11-10T17:30:00+05:30",
+    },
+    value: 25,
+    coordinates: {
+      latitude: 28.6139,
+      longitude: 77.209,
+    },
+    sensorsId: 1001,
+    locationsId: 5613,
+  };
+
+  const staleMeasurement = {
+    datetime: {
+      utc: new Date(
+        Date.now() - 48 * 60 * 60 * 1000,
+      ).toISOString(),
+      local: "2026-11-08T17:30:00+05:30",
+    },
+    value: 90,
+    coordinates: {
+      latitude: 28.6200,
+      longitude: 77.2100,
+    },
+    sensorsId: 1002,
+    locationsId: 5614,
+  };
+
+  dependencies.openAQClient.getParameterLatest.mockImplementation(
+    async (parameterId: number) => ({
+      meta: {
+        name: "openaq-api",
+        website: "https://openaq.org",
+        page: 1,
+        limit: 1000,
+        found: 2,
+      },
+      results:
+        parameterId === 2
+          ? [staleMeasurement, freshMeasurement]
+          : [],
+    }),
+  );
+
+  dependencies.locationRepository.upsertLocation.mockImplementation(
+    async (input) => ({
+      id: `location-${input.sourceLocationId}`,
+      source: input.source,
+      sourceLocationId: input.sourceLocationId,
+    }),
+  );
+
+  dependencies.measurementRepository.insertMeasurements.mockResolvedValue(
+    1,
+  );
+
+  await new IngestionService(
+    dependencies,
+    logger,
+  ).runCycle(
+    [],
+    undefined,
+    {
+      ingestWorldwideOpenAQ: true,
+      ingestOpenMeteo: false,
+    },
+  );
+
+  expect(
+    dependencies.openAQClient.getParameters,
+  ).toHaveBeenCalledWith(100);
+
+  expect(
+    dependencies.openAQClient.getParameterLatest,
+  ).toHaveBeenCalledWith(
+    2,
+    1,
+    1000,
+  );
+
+  expect(
+    dependencies.locationRepository.upsertLocation,
+  ).toHaveBeenCalledOnce();
+
+  expect(
+    dependencies.locationRepository.upsertLocation,
+  ).toHaveBeenCalledWith(
+    expect.objectContaining({
+      source: "OPENAQ",
+      sourceLocationId: "5613",
+      latitude: 28.6139,
+      longitude: 77.209,
+    }),
+  );
+
+  expect(
+    dependencies.measurementRepository.insertMeasurements,
+  ).toHaveBeenCalledTimes(6);
+
+  const insertedMeasurements =
+    dependencies.measurementRepository
+      .insertMeasurements.mock.calls[0][0];
+
+  expect(insertedMeasurements).toHaveLength(1);
+  expect(insertedMeasurements[0]).toEqual(
+    expect.objectContaining({
+      locationId: "location-5613",
+      locationSourceId: "5613",
+      pollutant: "PM2.5",
+      value: 25,
+      unit: "µg/m³",
+      source: "OPENAQ",
+      dataType: "ACTUAL",
+    }),
+  );
+
+  expect(logger.error).not.toHaveBeenCalled();
+});
 });

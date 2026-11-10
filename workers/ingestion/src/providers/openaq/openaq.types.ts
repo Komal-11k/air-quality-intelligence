@@ -119,3 +119,25 @@ export interface OpenAQDatetime {
     };
     results: OpenAQLatestMeasurement[];
   }
+
+  export interface OpenAQParametersResponse {
+    meta: {
+      name: string;
+      website: string;
+      page: number;
+      limit: number;
+      found: number | string | null;
+    };
+    results: OpenAQParameter[];
+  }
+  
+  export interface OpenAQParameterLatestResponse {
+    meta: {
+      name: string;
+      website: string;
+      page: number;
+      limit: number;
+      found: number | string | null;
+    };
+    results: OpenAQLatestMeasurement[];
+  }

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import {
   createLocationSchema,
+  locationsQuerySchema,
 } from "./locations.schema.js";
 import {
   createLocation,
@@ -8,8 +9,10 @@ import {
 } from "./locations.service.js";
 
 export const locationsRoutes = async (app: FastifyInstance) => {
-  app.get("/locations", async () => {
-    return getLocations();
+  app.get("/locations", async (request) => {
+    const query = locationsQuerySchema.parse(request.query);
+  
+    return getLocations(query);
   });
 
   app.post("/locations", async (request, reply) => {

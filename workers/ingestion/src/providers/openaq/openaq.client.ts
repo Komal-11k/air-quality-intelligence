@@ -2,6 +2,8 @@ import type {
   OpenAQLatestResponse,
   OpenAQLocation,
   OpenAQMeasurementsResponse,
+  OpenAQParameterLatestResponse,
+  OpenAQParametersResponse,
   OpenAQSensorResponse,
 } from "./openaq.types.js";
 import {
@@ -15,7 +17,7 @@ const MAX_ATTEMPTS = 4;
 const BASE_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 15_000;
-const MIN_REQUEST_INTERVAL_MS = 250;
+const MIN_REQUEST_INTERVAL_MS = 1_100;
 
 export class OpenAQClient {
   private readonly apiKey: string;
@@ -67,7 +69,30 @@ export class OpenAQClient {
 
     return location;
   }
+  async getLocations(
+    minLongitude: number,
+    minLatitude: number,
+    maxLongitude: number,
+    maxLatitude: number,
+    limit = 100,
+  ): Promise<OpenAQLocation[]> {
+    const params = new URLSearchParams({
+      bbox: [
+        minLongitude,
+        minLatitude,
+        maxLongitude,
+        maxLatitude,
+      ].join(","),
+      limit: String(limit),
+      page: "1",
+    });
 
+    const response = await this.request<{
+      results: OpenAQLocation[];
+    }>(`/locations?${params.toString()}`);
+
+    return response.results;
+  }
   async getSensors(
     locationId: number,
     limit = 100,
@@ -105,6 +130,32 @@ export class OpenAQClient {
   ): Promise<OpenAQLatestResponse> {
     return this.request<OpenAQLatestResponse>(
       `/locations/${locationId}/latest?limit=100&page=1`,
+    );
+  }
+
+  async getParameters(limit = 100): Promise<OpenAQParametersResponse> {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      page: "1",
+    });
+
+    return this.request<OpenAQParametersResponse>(
+      `/parameters?${params.toString()}`,
+    );
+  }
+
+  async getParameterLatest(
+    parameterId: number,
+    page = 1,
+    limit = 1000,
+  ): Promise<OpenAQParameterLatestResponse> {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      page: String(page),
+    });
+  
+    return this.request<OpenAQParameterLatestResponse>(
+      `/parameters/${parameterId}/latest?${params.toString()}`,
     );
   }
 }

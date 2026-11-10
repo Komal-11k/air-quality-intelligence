@@ -3,6 +3,7 @@ import type { SpatialStation } from "../idw/idw.types.js";
 
 export interface LatestStationMeasurement {
   id: string;
+  locationId: string;
   latitude: number;
   longitude: number;
   value: number;
@@ -21,6 +22,7 @@ export class SpatialRepository {
       `
         SELECT DISTINCT ON (m.location_id)
           m.id::text AS id,
+          m.location_id::text AS "locationId",
           l.latitude,
           l.longitude,
           m.value,
@@ -45,6 +47,7 @@ export class SpatialRepository {
 
     return result.rows.map((row) => ({
       id: row.id,
+      locationId: row.locationId,
       latitude: row.latitude,
       longitude: row.longitude,
       value: row.value,
@@ -55,5 +58,38 @@ export class SpatialRepository {
 
   async close(): Promise<void> {
     await this.pool.end();
+  }
+  async getLatestStationMeasurementsForPollutant(
+    pollutant: string,
+  ): Promise<LatestStationMeasurement[]> {
+    const result = await this.pool.query<LatestStationMeasurement>(
+      `
+        SELECT DISTINCT ON (m.location_id)
+          m.id::text AS id,
+          m.location_id::text AS "locationId",
+          l.latitude,
+          l.longitude,
+          m.value,
+          m.pollutant,
+          m.unit,
+          m.measured_at AS "measuredAt"
+        FROM measurements m
+        INNER JOIN locations l
+          ON l.id = m.location_id
+        WHERE m.pollutant = $1
+          AND m.source = 'OPENAQ'
+          AND m.data_type = 'ACTUAL'
+          AND l.latitude BETWEEN -90 AND 90
+          AND l.longitude BETWEEN -180 AND 180
+          AND m.value IS NOT NULL
+        ORDER BY
+          m.location_id,
+          m.measured_at DESC,
+          m.id DESC
+      `,
+      [pollutant],
+    );
+  
+    return result.rows;
   }
 }

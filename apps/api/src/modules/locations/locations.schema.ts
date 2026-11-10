@@ -12,3 +12,11 @@ export const createLocationSchema = z.object({
 });
 
 export type CreateLocationInput = z.infer<typeof createLocationSchema>;
+
+export const locationsQuerySchema = z.object({
+  search: z.string().trim().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export type LocationsQuery = z.infer<typeof locationsQuerySchema>;

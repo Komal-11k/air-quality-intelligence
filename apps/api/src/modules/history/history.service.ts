@@ -44,5 +44,8 @@ export const getMeasurementHistory = async (
     values,
   );
 
-  return result.rows;
+  return {
+    value: result.rows,
+    Count: result.rows.length,
+  };
 };

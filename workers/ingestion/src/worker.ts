@@ -29,6 +29,8 @@ const ingestionService =
     locationRepository,
     measurementRepository,
     forecastRepository,
+    openAQWorldwideMaxAgeHours:
+  env.OPENAQ_WORLDWIDE_MAX_AGE_HOURS,
   });
 
 let ingestionRunning = false;
@@ -47,6 +49,23 @@ const runIngestion = async (): Promise<void> => {
   try {
     await ingestionService.runCycle(
       env.OPENAQ_LOCATION_IDS,
+      undefined,
+      {
+        ingestWorldwideOpenAQ: true,
+      },
+    );
+    
+    await ingestionService.runCycle(
+      [],
+      {
+        minLongitude: env.OPENAQ_MIN_LONGITUDE,
+        minLatitude: env.OPENAQ_MIN_LATITUDE,
+        maxLongitude: env.OPENAQ_MAX_LONGITUDE,
+        maxLatitude: env.OPENAQ_MAX_LATITUDE,
+      },
+      {
+        ingestOpenMeteo: false,
+      },
     );
   } finally {
     ingestionRunning = false;

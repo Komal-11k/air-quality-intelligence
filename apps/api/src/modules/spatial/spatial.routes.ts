@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { spatialHeatmapQuerySchema } from "./spatial.schema.js";
-import { getLatestSpatialHeatmap } from "./spatial.service.js";
+import {
+  spatialHeatmapQuerySchema,
+} from "./spatial.schema.js";
+
+import {
+  getLatestSpatialHeatmap,
+  getLatestSpatialStations,
+} from "./spatial.service.js";
 
 export const spatialRoutes = async (app: FastifyInstance) => {
   app.get("/spatial/heatmap", async (request, reply) => {
@@ -16,5 +22,10 @@ export const spatialRoutes = async (app: FastifyInstance) => {
     }
 
     return heatmap;
+  });
+  app.get("/spatial/stations", async (request) => {
+    const query = spatialHeatmapQuerySchema.parse(request.query);
+  
+    return getLatestSpatialStations(query);
   });
 };

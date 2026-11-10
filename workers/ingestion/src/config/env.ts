@@ -12,6 +12,16 @@ const envSchema = z.object({
 
   OPENAQ_REQUEST_LIMIT: z.coerce.number().int().positive().max(1000).default(100),
 
+  OPENAQ_WORLDWIDE_MAX_AGE_HOURS: z.coerce
+  .number()
+  .positive()
+  .default(24),
+
+  OPENAQ_MIN_LONGITUDE: z.coerce.number().min(-180).max(180),
+  OPENAQ_MIN_LATITUDE: z.coerce.number().min(-90).max(90),
+  OPENAQ_MAX_LONGITUDE: z.coerce.number().min(-180).max(180),
+  OPENAQ_MAX_LATITUDE: z.coerce.number().min(-90).max(90),
+
   OPENAQ_LOCATION_IDS: z
     .string()
     .min(1)
