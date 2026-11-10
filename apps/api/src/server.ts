@@ -9,6 +9,7 @@ import { healthRoutes } from "./modules/health/health.routes.js";
 import { forecastRoutes } from "./modules/forecast/forecast.routes.js";
 import { alertsRoutes } from "./modules/alerts/alerts.routes.js";
 import { assistantRoutes } from "./modules/assistant/assistant.routes.js";
+import { spatialRoutes } from "./modules/spatial/spatial.routes.js";
 import { env } from "./config/env.js";
 import Fastify from "fastify";
 import { ZodError } from "zod";
@@ -41,6 +42,7 @@ await app.register(comparisonRoutes);
 await app.register(forecastRoutes);
 await app.register(alertsRoutes);
 await app.register(assistantRoutes);
+await app.register(spatialRoutes);
 await app.register(healthRoutes);
 
 const start = async () => {
