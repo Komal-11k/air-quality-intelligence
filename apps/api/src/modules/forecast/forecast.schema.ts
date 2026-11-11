@@ -1,14 +1,33 @@
 import { z } from "zod";
 
 export const forecastQuerySchema = z.object({
-  locationId: z.string().uuid(),
-  hours: z.coerce.number().int().positive().max(168).default(24),
+  latitude: z.coerce
+    .number()
+    .finite()
+    .min(-90)
+    .max(90),
+
+  longitude: z.coerce
+    .number()
+    .finite()
+    .min(-180)
+    .max(180),
+
+  hours: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(168)
+    .default(24),
 });
 
-export type ForecastQuery = z.infer<typeof forecastQuerySchema>;
+export type ForecastQuery =
+  z.infer<typeof forecastQuerySchema>;
 
 export const forecastResponseSchema = z.object({
-  locationId: z.string().uuid(),
+  latitude: z.number(),
+  longitude: z.number(),
+
   forecast: z.array(
     z.object({
       timestamp: z.string(),
@@ -23,6 +42,5 @@ export const forecastResponseSchema = z.object({
   ),
 });
 
-export type ForecastResponse = z.infer<
-  typeof forecastResponseSchema
->;
+export type ForecastResponse =
+  z.infer<typeof forecastResponseSchema>;
