@@ -35,7 +35,11 @@ app.setErrorHandler((error, request, reply) => {
   });
 });
 await app.register(cors, {
-  origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+  origin: [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://air-quality-intelligence-ivory.vercel.app",
+  ],
 });
 await app.register(locationsRoutes);
 await app.register(measurementsRoutes);
