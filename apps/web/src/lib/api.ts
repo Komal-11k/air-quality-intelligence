@@ -164,7 +164,8 @@ export const api = {
     query: ForecastQuery,
   ): Promise<ForecastResponse> {
     const params = new URLSearchParams({
-      locationId: query.locationId,
+      latitude: String(query.latitude),
+      longitude: String(query.longitude),
       hours: String(query.hours ?? 24),
     });
 
@@ -333,12 +334,14 @@ export type Location = {
   };
 
   export type ForecastResponse = {
-    locationId: string;
+    latitude: number;
+    longitude: number;
     forecast: ForecastPoint[];
   };
-
+  
   export type ForecastQuery = {
-    locationId: string;
+    latitude: number;
+    longitude: number;
     hours?: number;
   };
 

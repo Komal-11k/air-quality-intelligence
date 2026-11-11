@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   api,
   type ForecastPoint,
-  type Location,
 } from "../../lib/api";
 import { AppShell } from "../../components/common/AppShell";
 
@@ -22,17 +21,6 @@ const POLLUTANT_ORDER = [
   "CO",
   "O3",
 ];
-
-function formatLocation(location: Location) {
-  const parts = [
-    location.name,
-    location.city,
-    location.region,
-    location.country,
-  ].filter(Boolean);
-
-  return parts.join(", ");
-}
 
 function formatForecastTime(timestamp: string) {
   return new Intl.DateTimeFormat("en-IN", {
@@ -94,34 +82,14 @@ function getForecastSources(
   );
 }
 
-function deduplicateLocations(
-  locations: Location[],
-) {
-  const seen = new Set<string>();
-  const result: Location[] = [];
-
-  for (const location of locations) {
-    if (seen.has(location.id)) {
-      continue;
-    }
-
-    seen.add(location.id);
-    result.push(location);
-  }
-
-  return result;
-}
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+};
 
 export default function ForecastPage() {
-  const [locations, setLocations] = useState<
-    Location[]
-  >([]);
-
-  const [selectedLocationId, setSelectedLocationId] =
-    useState("");
-
-  const [locationSearch, setLocationSearch] =
-    useState("");
+  const [coordinates, setCoordinates] =
+    useState<Coordinates | null>(null);
 
   const [hours, setHours] = useState(24);
 
@@ -132,7 +100,7 @@ export default function ForecastPage() {
     ForecastPoint[]
   >([]);
 
-  const [loadingLocations, setLoadingLocations] =
+  const [loadingLocation, setLoadingLocation] =
     useState(true);
 
   const [loadingForecast, setLoadingForecast] =
@@ -145,52 +113,68 @@ export default function ForecastPage() {
     useState("");
 
   useEffect(() => {
+    if (
+      !navigator.geolocation
+    ) {
+      setLocationError(
+        "Your browser does not support location access.",
+      );
+      setLoadingLocation(false);
+      return;
+    }
+
     let cancelled = false;
 
-    const loadLocations = async () => {
-      try {
-        setLoadingLocations(true);
-        setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled) {
+          return;
+        }
 
-        const response = await api.getLocations({
-          limit: 50,
-          offset: 0,
+        setCoordinates({
+          latitude:
+            position.coords.latitude,
+          longitude:
+            position.coords.longitude,
         });
 
+        setLocationError("");
+        setLoadingLocation(false);
+      },
+      (error) => {
         if (cancelled) {
           return;
         }
 
-        const uniqueLocations =
-          deduplicateLocations(
-            response.locations,
-          );
+        let message =
+          "Unable to determine your current location.";
 
-        setLocations(uniqueLocations);
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            message =
+              "Location permission was denied. Allow location access in your browser to view the forecast for your current location.";
+            break;
 
-        if (uniqueLocations.length > 0) {
-          setSelectedLocationId(
-            uniqueLocations[0].id,
-          );
+          case error.POSITION_UNAVAILABLE:
+            message =
+              "Your current location is unavailable. Please try again when your device can determine its location.";
+            break;
+
+          case error.TIMEOUT:
+            message =
+              "Location detection timed out. Please try again.";
+            break;
         }
-      } catch (err) {
-        if (cancelled) {
-          return;
-        }
 
-        setLocationError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load monitoring locations.",
-        );
-      } finally {
-        if (!cancelled) {
-          setLoadingLocations(false);
-        }
-      }
-    };
-
-    void loadLocations();
+        setLocationError(message);
+        setLoadingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15_000,
+        maximumAge: 300_000,
+      },
+    );
 
     return () => {
       cancelled = true;
@@ -198,7 +182,7 @@ export default function ForecastPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedLocationId) {
+    if (!coordinates) {
       setForecast([]);
       return;
     }
@@ -212,8 +196,10 @@ export default function ForecastPage() {
 
         const response =
           await api.getForecast({
-            locationId:
-              selectedLocationId,
+            latitude:
+              coordinates.latitude,
+            longitude:
+              coordinates.longitude,
             hours,
           });
 
@@ -266,35 +252,10 @@ export default function ForecastPage() {
       cancelled = true;
     };
   }, [
-    selectedLocationId,
+    coordinates,
     hours,
+    selectedPollutant,
   ]);
-
-  const filteredLocations = useMemo(() => {
-    const query =
-      locationSearch.trim().toLowerCase();
-
-    if (!query) {
-      return locations;
-    }
-
-    return locations.filter(
-      (location) =>
-        formatLocation(location)
-          .toLowerCase()
-          .includes(query),
-    );
-  }, [
-    locations,
-    locationSearch,
-  ]);
-
-  const selectedLocation =
-    locations.find(
-      (location) =>
-        location.id ===
-        selectedLocationId,
-    );
 
   const availablePollutants =
     useMemo(() => {
@@ -609,6 +570,15 @@ export default function ForecastPage() {
     };
   }, [activeForecast]);
 
+  const locationLabel =
+    coordinates
+      ? `${coordinates.latitude.toFixed(
+          4,
+        )}, ${coordinates.longitude.toFixed(
+          4,
+        )}`
+      : "";
+
   return (
     <AppShell>
       <div className="space-y-6">
@@ -625,9 +595,8 @@ export default function ForecastPage() {
 
               <p className="mt-1 max-w-3xl text-sm text-slate-600">
                 View projected pollutant
-                concentrations for the
-                selected monitoring
-                location.
+                concentrations for your
+                current location.
               </p>
             </div>
           </div>
@@ -636,100 +605,31 @@ export default function ForecastPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <label
-                htmlFor="forecast-location-search"
-                className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500"
-              >
-                Monitoring location
-              </label>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Current location
+              </p>
 
-              <input
-                id="forecast-location-search"
-                type="search"
-                value={locationSearch}
-                onChange={(event) =>
-                  setLocationSearch(
-                    event.target.value,
-                  )
-                }
-                placeholder="Search monitoring locations..."
-                disabled={
-                  loadingLocations ||
-                  locations.length ===
-                    0
-                }
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-              />
+              {loadingLocation ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-500">
+                  Detecting your
+                  location...
+                </div>
+              ) : coordinates ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5">
+                  <p className="text-sm font-medium text-slate-900">
+                    Your current
+                    location
+                  </p>
 
-              <select
-                id="forecast-location"
-                value={
-                  selectedLocationId
-                }
-                onChange={(event) =>
-                  setSelectedLocationId(
-                    event.target.value,
-                  )
-                }
-                disabled={
-                  loadingLocations ||
-                  filteredLocations.length ===
-                    0
-                }
-                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
-              >
-                {loadingLocations ? (
-                  <option value="">
-                    Loading
-                    locations...
-                  </option>
-                ) : filteredLocations.length ===
-                  0 ? (
-                  <option value="">
-                    No matching
-                    locations
-                  </option>
-                ) : (
-                  filteredLocations.map(
-                    (location) => (
-                      <option
-                        key={
-                          location.id
-                        }
-                        value={
-                          location.id
-                        }
-                      >
-                        {formatLocation(
-                          location,
-                        )}
-                      </option>
-                    ),
-                  )
-                )}
-              </select>
-
-              <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                <span>
-                  {
-                    filteredLocations.length
-                  }{" "}
-                  matching location
-                  {filteredLocations.length ===
-                  1
-                    ? ""
-                    : "s"}
-                </span>
-
-                {selectedLocation && (
-                  <span className="truncate pl-3 text-slate-600">
-                    Selected:{" "}
-                    {
-                      selectedLocation.name
-                    }
-                  </span>
-                )}
-              </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {locationLabel}
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                  Location unavailable
+                </div>
+              )}
             </div>
 
             <div>
@@ -751,7 +651,9 @@ export default function ForecastPage() {
                   )
                 }
                 disabled={
-                  loadingForecast
+                  loadingForecast ||
+                  loadingLocation ||
+                  !coordinates
                 }
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
               >
@@ -829,13 +731,13 @@ export default function ForecastPage() {
         </section>
 
         {locationError && (
-          <section className="rounded-2xl border border-red-200 bg-red-50 p-4">
-            <p className="text-sm font-medium text-red-800">
-              Monitoring locations
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-900">
+              Current location
               unavailable
             </p>
 
-            <p className="mt-1 text-sm text-red-700">
+            <p className="mt-1 text-sm text-amber-800">
               {locationError}
             </p>
           </section>
@@ -853,14 +755,17 @@ export default function ForecastPage() {
           </section>
         )}
 
-        {loadingForecast ? (
+        {loadingLocation ||
+        loadingForecast ? (
           <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
             <div className="flex min-h-64 items-center justify-center">
               <div className="text-center">
                 <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-teal-700" />
 
                 <p className="mt-3 text-sm text-slate-500">
-                  Loading forecast...
+                  {loadingLocation
+                    ? "Detecting your current location..."
+                    : "Loading forecast..."}
                 </p>
               </div>
             </div>
@@ -877,9 +782,9 @@ export default function ForecastPage() {
 
                 <p className="mt-2 max-w-md text-sm text-slate-600">
                   There is currently no
-                  forecast data for
-                  this location and
-                  pollutant.
+                  forecast data available
+                  for your current
+                  location.
                 </p>
               </div>
             </div>
@@ -970,11 +875,11 @@ export default function ForecastPage() {
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-500">
-                    {selectedLocation
-                      ? formatLocation(
-                          selectedLocation,
-                        )
-                      : "Selected monitoring location"}
+                    Your current
+                    location
+                    {coordinates
+                      ? ` (${locationLabel})`
+                      : ""}
                   </p>
 
                   {forecastStats &&
@@ -1169,8 +1074,9 @@ export default function ForecastPage() {
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-500">
-                  Forecast values for the
-                  selected pollutant.
+                  Forecast values for
+                  the selected
+                  pollutant.
                 </p>
               </div>
 
@@ -1250,15 +1156,12 @@ export default function ForecastPage() {
                   Forecast methodology:
                 </span>{" "}
                 Forecast values are retrieved
-                from the configured forecast
-                provider and represent projected
-                pollutant concentrations for the
-                selected monitoring location.
-                The current production forecast
-                source is Open-Meteo. These values
-                are forecasts and should not be
-                interpreted as actual sensor
-                measurements.
+                from Open-Meteo using your
+                current browser location and
+                represent projected pollutant
+                concentrations. These are
+                modelled forecast values, not
+                actual sensor measurements.
               </p>
             </section>
           </>
