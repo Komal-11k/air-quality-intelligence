@@ -80,10 +80,6 @@ An AI-powered assistant that can answer questions about air quality and provide 
 
 The backend integrates Google's Gemini API through a dedicated assistant module.
 
-### 🚨 Smart Alerts Infrastructure
-
-The platform includes alert infrastructure for monitoring air-quality conditions and triggering notifications based on configured conditions.
-
 ### 🧠 Spatial Intelligence
 
 The spatial subsystem supports:
@@ -894,13 +890,13 @@ Security considerations include:
 - [x] IDW interpolation
 - [x] Redis infrastructure
 - [x] AI assistant
-- [x] Alert infrastructure
 - [x] Automated ingestion tests
 - [x] Production deployment
 
 ### Future enhancements
 
-- [ ] Advanced ML air-quality prediction
+- [ ] Advanced ML air-quality prediction 
+- [ ] Alert infrastructure
 - [ ] Smart personalized alerts
 - [ ] Pollution impact reports
 - [ ] Clean-air location finder
