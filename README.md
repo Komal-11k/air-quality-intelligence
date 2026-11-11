@@ -1,8 +1,11 @@
 # 🌍 Real-Time Air Quality Intelligence Platform
+🚀 Live Demo
 
-A production-oriented full-stack air quality intelligence platform that combines **real-world air quality measurements, coordinate-based air quality data, historical analysis, forecasting, spatial visualization, health insights, and AI assistance** into a single application.
+https://air-quality-intelligence-ivory.vercel.app/
 
-The platform integrates public air-quality APIs, persists normalized data in **TimescaleDB/PostgreSQL**, provides a **Fastify REST API**, and delivers an interactive **Next.js dashboard**.
+A production-oriented full-stack air quality intelligence platform that combines real-world air quality measurements, coordinate-based air quality data, historical analysis, forecasting, spatial visualization, health insights, and AI assistance into a single application.
+
+The platform integrates public air-quality APIs, persists normalized data in TimescaleDB/PostgreSQL, provides a Fastify REST API, and delivers an interactive Next.js dashboard.
 
 ---
 
