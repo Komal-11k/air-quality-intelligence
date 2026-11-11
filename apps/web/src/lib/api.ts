@@ -326,6 +326,10 @@ export type Location = {
     pollutant: string;
     predictedValue: number;
     unit: string;
+    source: string;
+    modelVersion: string | null;
+    predictionLower: number | null;
+    predictionUpper: number | null;
   };
 
   export type ForecastResponse = {
