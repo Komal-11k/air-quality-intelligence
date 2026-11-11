@@ -9,8 +9,17 @@ const __dirname = path.dirname(__filename);
 
 const migrationsDir = path.resolve(__dirname, "../../database/migrations");
 
+const isProductionDatabase = env.DATABASE_URL.includes(
+  "tsdb.cloud.timescale.com",
+);
+
 const client = new Client({
   connectionString: env.DATABASE_URL,
+  ssl: isProductionDatabase
+    ? {
+        rejectUnauthorized: false,
+      }
+    : undefined,
 });
 
 const run = async () => {

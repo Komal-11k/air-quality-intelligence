@@ -20,7 +20,8 @@ CREATE TABLE alert_events (
     CONSTRAINT alert_events_condition_check
         CHECK (
             condition IN ('GREATER_THAN', 'LESS_THAN', 'EQUAL_TO')
-        ),
+        )
+);
 
 CREATE INDEX alert_events_alert_idx
     ON alert_events (alert_id);
