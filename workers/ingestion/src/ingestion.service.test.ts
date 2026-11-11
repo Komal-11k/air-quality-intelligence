@@ -20,6 +20,7 @@ describe("IngestionService", () => {
   
     locationRepository: {
       upsertLocation: vi.fn(),
+      upsertLocations: vi.fn(),
     },
   
     measurementRepository: {
@@ -443,12 +444,24 @@ describe("IngestionService", () => {
     }),
   );
 
-  dependencies.locationRepository.upsertLocation.mockImplementation(
-    async (input) => ({
-      id: `location-${input.sourceLocationId}`,
-      source: input.source,
-      sourceLocationId: input.sourceLocationId,
-    }),
+  dependencies.locationRepository.upsertLocations.mockImplementation(
+    async (
+      inputs: Array<{
+        source: string;
+        sourceLocationId: string;
+        name: string;
+        city: string | null;
+        region: string | null;
+        country: string | null;
+        latitude: number;
+        longitude: number;
+      }>,
+    ) =>
+      inputs.map((input) => ({
+        id: `location-${input.sourceLocationId}`,
+        source: input.source,
+        sourceLocationId: input.sourceLocationId,
+      })),
   );
 
   dependencies.measurementRepository.insertMeasurements.mockResolvedValue(
@@ -480,20 +493,22 @@ describe("IngestionService", () => {
   );
 
   expect(
-    dependencies.locationRepository.upsertLocation,
-  ).toHaveBeenCalledOnce();
-
+    dependencies.locationRepository.upsertLocations,
+  ).toHaveBeenCalledTimes(6);
+  
   expect(
-    dependencies.locationRepository.upsertLocation,
-  ).toHaveBeenCalledWith(
-    expect.objectContaining({
-      source: "OPENAQ",
-      sourceLocationId: "5613",
-      latitude: 28.6139,
-      longitude: 77.209,
-    }),
+    dependencies.locationRepository.upsertLocations,
+  ).toHaveBeenNthCalledWith(
+    1,
+    [
+      expect.objectContaining({
+        source: "OPENAQ",
+        sourceLocationId: "5613",
+        latitude: 28.6139,
+        longitude: 77.209,
+      }),
+    ],
   );
-
   expect(
     dependencies.measurementRepository.insertMeasurements,
   ).toHaveBeenCalledTimes(6);

@@ -63,6 +63,10 @@ export interface LocationRepositoryPort {
   upsertLocation(
     input: UpsertLocationInput,
   ): Promise<LocationRecord>;
+
+  upsertLocations(
+    inputs: UpsertLocationInput[],
+  ): Promise<LocationRecord[]>;
 }
 
 export interface MeasurementRepositoryPort {
@@ -304,166 +308,166 @@ export class IngestionService {
   }
 
   private async ingestWorldwideOpenAQ(): Promise<void> {
-    const {
-      openAQClient,
-      locationRepository,
-      measurementRepository,
-    } = this.dependencies;
-  
-    const maxAgeHours =
-  this.dependencies.openAQWorldwideMaxAgeHours;
-  
-    if (!Number.isFinite(maxAgeHours) || maxAgeHours <= 0) {
-      throw new Error(
-        "OPENAQ_WORLDWIDE_MAX_AGE_HOURS must be a positive number",
-      );
-    }
-  
-    const freshnessCutoff = new Date(
-      Date.now() - maxAgeHours * 60 * 60 * 1000,
+  const {
+    openAQClient,
+    locationRepository,
+    measurementRepository,
+  } = this.dependencies;
+
+  const maxAgeHours =
+    this.dependencies.openAQWorldwideMaxAgeHours;
+
+  if (!Number.isFinite(maxAgeHours) || maxAgeHours <= 0) {
+    throw new Error(
+      "OPENAQ_WORLDWIDE_MAX_AGE_HOURS must be a positive number",
     );
-  
-    const parametersResponse =
-      await openAQClient.getParameters(100);
-  
-    const requiredPollutants = [
-      "PM2.5",
-      "PM10",
-      "NO2",
-      "O3",
-      "SO2",
-      "CO",
-    ] as const;
-  
-    const parametersByPollutant = new Map<
-      string,
-      { id: number; units: string }
-    >();
-  
-    for (const parameter of parametersResponse.results) {
-      const name = parameter.name.toLowerCase();
-  
-      let pollutant:
-        | (typeof requiredPollutants)[number]
-        | null = null;
-  
-      if (name === "pm25") {
-        pollutant = "PM2.5";
-      } else if (name === "pm10") {
-        pollutant = "PM10";
-      } else if (name === "no2") {
-        pollutant = "NO2";
-      } else if (name === "o3") {
-        pollutant = "O3";
-      } else if (name === "so2") {
-        pollutant = "SO2";
-      } else if (name === "co") {
-        pollutant = "CO";
-      }
-  
-      if (
-        pollutant &&
-        parameter.units === "µg/m³" &&
-        !parametersByPollutant.has(pollutant)
-      ) {
-        parametersByPollutant.set(pollutant, {
-          id: parameter.id,
-          units: parameter.units,
-        });
-      }
+  }
+
+  const freshnessCutoff = new Date(
+    Date.now() - maxAgeHours * 60 * 60 * 1000,
+  );
+
+  const parametersResponse =
+    await openAQClient.getParameters(100);
+
+  const requiredPollutants = [
+    "PM2.5",
+    "PM10",
+    "NO2",
+    "O3",
+    "SO2",
+    "CO",
+  ] as const;
+
+  const parametersByPollutant = new Map<
+    string,
+    { id: number; units: string }
+  >();
+
+  for (const parameter of parametersResponse.results) {
+    const name = parameter.name.toLowerCase();
+
+    let pollutant:
+      | (typeof requiredPollutants)[number]
+      | null = null;
+
+    if (name === "pm25") {
+      pollutant = "PM2.5";
+    } else if (name === "pm10") {
+      pollutant = "PM10";
+    } else if (name === "no2") {
+      pollutant = "NO2";
+    } else if (name === "o3") {
+      pollutant = "O3";
+    } else if (name === "so2") {
+      pollutant = "SO2";
+    } else if (name === "co") {
+      pollutant = "CO";
     }
-  
-    for (const pollutant of requiredPollutants) {
-      const parameter = parametersByPollutant.get(pollutant);
-  
-      if (!parameter) {
-        this.logger.warn(
-          `[ingestion] OpenAQ worldwide parameter not found for ${pollutant}`,
-        );
-        continue;
-      }
-  
-      try {
-        let page = 1;
-        let totalFound: number | null = null;
-  
-        const latestByLocation = new Map<
-          string,
-          OpenAQLatestResponse["results"][number]
-        >();
-  
-        while (true) {
-          const response =
-            await openAQClient.getParameterLatest(
-              parameter.id,
-              page,
-              1000,
-            );
-  
-          if (totalFound === null) {
-            const found = Number(response.meta.found);
-  
-            if (Number.isFinite(found)) {
-              totalFound = found;
-            }
+
+    if (
+      pollutant &&
+      parameter.units === "µg/m³" &&
+      !parametersByPollutant.has(pollutant)
+    ) {
+      parametersByPollutant.set(pollutant, {
+        id: parameter.id,
+        units: parameter.units,
+      });
+    }
+  }
+
+  for (const pollutant of requiredPollutants) {
+    const parameter =
+      parametersByPollutant.get(pollutant);
+
+    if (!parameter) {
+      this.logger.warn(
+        `[ingestion] OpenAQ worldwide parameter not found for ${pollutant}`,
+      );
+      continue;
+    }
+
+    try {
+      let page = 1;
+      let totalFound: number | null = null;
+
+      const latestByLocation = new Map<
+        string,
+        OpenAQParameterLatestResponse["results"][number]
+      >();
+
+      while (true) {
+        const response =
+          await openAQClient.getParameterLatest(
+            parameter.id,
+            page,
+            1000,
+          );
+
+        if (totalFound === null) {
+          const found = Number(response.meta.found);
+
+          if (Number.isFinite(found)) {
+            totalFound = found;
           }
-  
-          for (const measurement of response.results) {
-            const measuredAt = new Date(
-              measurement.datetime.utc,
-            );
-  
-            if (
-              Number.isNaN(measuredAt.getTime()) ||
-              measuredAt < freshnessCutoff ||
-              measurement.value === null
-            ) {
-              continue;
-            }
-  
-            const locationKey = String(
-              measurement.locationsId,
-            );
-  
-            const existing =
-              latestByLocation.get(locationKey);
-  
-            if (!existing) {
-              latestByLocation.set(
-                locationKey,
-                measurement,
-              );
-              continue;
-            }
-  
-            const existingTime = new Date(
-              existing.datetime.utc,
-            );
-  
-            if (measuredAt > existingTime) {
-              latestByLocation.set(
-                locationKey,
-                measurement,
-              );
-            }
-          }
-  
-          const reachedEnd =
-            response.results.length === 0 ||
-            (totalFound !== null &&
-              page * response.meta.limit >= totalFound) ||
-            response.results.length < response.meta.limit;
-  
-          if (reachedEnd) {
-            break;
-          }
-  
-          page += 1;
         }
-  
-        const normalizedMeasurements = Array.from(
-          latestByLocation.values(),
-        )
+
+        for (const measurement of response.results) {
+          const measuredAt = new Date(
+            measurement.datetime.utc,
+          );
+
+          if (
+            Number.isNaN(measuredAt.getTime()) ||
+            measuredAt < freshnessCutoff ||
+            measurement.value === null
+          ) {
+            continue;
+          }
+
+          const locationKey = String(
+            measurement.locationsId,
+          );
+
+          const existing =
+            latestByLocation.get(locationKey);
+
+          if (!existing) {
+            latestByLocation.set(
+              locationKey,
+              measurement,
+            );
+            continue;
+          }
+
+          const existingTime = new Date(
+            existing.datetime.utc,
+          );
+
+          if (measuredAt > existingTime) {
+            latestByLocation.set(
+              locationKey,
+              measurement,
+            );
+          }
+        }
+
+        const reachedEnd =
+          response.results.length === 0 ||
+          (totalFound !== null &&
+            page * response.meta.limit >= totalFound) ||
+          response.results.length < response.meta.limit;
+
+        if (reachedEnd) {
+          break;
+        }
+
+        page += 1;
+      }
+
+      const normalizedMeasurements =
+        Array.from(latestByLocation.values())
           .map((measurement) =>
             normalizeOpenAQParameterLatestMeasurement(
               measurement,
@@ -479,85 +483,134 @@ export class IngestionService {
               typeof measurement
             > => measurement !== null,
           );
-  
-        const validatedMeasurements =
-          normalizedMeasurements.map(
-            validateMeasurement,
-          );
-  
-        const persistedMeasurements = [];
-  
-        for (const measurement of validatedMeasurements) {
-          const latitude =
-            latestByLocation.get(
-              measurement.locationSourceId,
-            )?.coordinates.latitude;
-  
-          const longitude =
-            latestByLocation.get(
-              measurement.locationSourceId,
-            )?.coordinates.longitude;
-  
-          if (
-            latitude === null ||
-            latitude === undefined ||
-            longitude === null ||
-            longitude === undefined
-          ) {
-            continue;
-          }
-  
-          if (
-            !Number.isFinite(latitude) ||
-            !Number.isFinite(longitude) ||
-            latitude < -90 ||
-            latitude > 90 ||
-            longitude < -180 ||
-            longitude > 180
-          ) {
-            continue;
-          }
-  
-          const location =
-            await locationRepository.upsertLocation({
+
+      const validatedMeasurements =
+        normalizedMeasurements.map(
+          validateMeasurement,
+        );
+
+      const locationInputsBySourceId =
+        new Map<string, UpsertLocationInput>();
+
+      for (const measurement of validatedMeasurements) {
+        const sourceLocationId =
+          measurement.locationSourceId;
+
+        const sourceMeasurement =
+          latestByLocation.get(sourceLocationId);
+
+        if (!sourceMeasurement) {
+          continue;
+        }
+
+        const latitude =
+          sourceMeasurement.coordinates.latitude;
+
+        const longitude =
+          sourceMeasurement.coordinates.longitude;
+
+        if (
+          latitude === null ||
+          latitude === undefined ||
+          longitude === null ||
+          longitude === undefined
+        ) {
+          continue;
+        }
+
+        if (
+          !Number.isFinite(latitude) ||
+          !Number.isFinite(longitude) ||
+          latitude < -90 ||
+          latitude > 90 ||
+          longitude < -180 ||
+          longitude > 180
+        ) {
+          continue;
+        }
+
+        if (
+          !locationInputsBySourceId.has(
+            sourceLocationId,
+          )
+        ) {
+          locationInputsBySourceId.set(
+            sourceLocationId,
+            {
               source: "OPENAQ",
-              sourceLocationId:
-                measurement.locationSourceId,
+              sourceLocationId,
               name:
-                `OpenAQ location ${measurement.locationSourceId}`,
+                `OpenAQ location ${sourceLocationId}`,
               city: null,
               region: null,
               country: null,
               latitude,
               longitude,
-            });
-  
-          persistedMeasurements.push({
-            ...measurement,
-            locationId: location.id,
-          });
-        }
-  
-        const inserted =
-          await measurementRepository.insertMeasurements(
-            persistedMeasurements,
+            },
           );
-  
-        this.logger.info(
-          `[ingestion] OpenAQ worldwide pollutant=${pollutant} ` +
-            `pages=${page} ` +
-            `fresh_locations=${persistedMeasurements.length} ` +
-            `inserted=${inserted}`,
+        }
+      }
+
+      const locationInputs =
+        Array.from(
+          locationInputsBySourceId.values(),
         );
-      } catch (error) {
-        this.logger.warn(
-          `[ingestion] OpenAQ worldwide ingestion failed ` +
-            `for pollutant=${pollutant}; other pollutants will continue`,
-          error,
+
+      const persistedLocations =
+        await locationRepository.upsertLocations(
+          locationInputs,
+        );
+
+      const locationIdBySourceLocationId =
+        new Map<string, string>();
+
+      for (const location of persistedLocations) {
+        locationIdBySourceLocationId.set(
+          location.sourceLocationId,
+          location.id,
         );
       }
+
+      const persistedMeasurements: PersistMeasurementInput[] =
+        [];
+
+      for (const measurement of validatedMeasurements) {
+        const locationId =
+          locationIdBySourceLocationId.get(
+            measurement.locationSourceId,
+          );
+
+        if (!locationId) {
+          continue;
+        }
+
+        persistedMeasurements.push({
+          ...measurement,
+          locationId,
+        });
+      }
+
+      const inserted =
+        await measurementRepository.insertMeasurements(
+          persistedMeasurements,
+        );
+
+      this.logger.info(
+        `[ingestion] OpenAQ worldwide pollutant=${pollutant} ` +
+          `pages=${page} ` +
+          `fresh_locations=${persistedLocations.length} ` +
+          `measurements=${persistedMeasurements.length} ` +
+          `inserted=${inserted}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `[ingestion] OpenAQ worldwide ingestion failed ` +
+          `for pollutant=${pollutant}; other pollutants will continue`,
+        error,
+      );
     }
   }
+}
 
   async runCycle(
     locationSourceIds: number[],
