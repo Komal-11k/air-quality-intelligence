@@ -48,11 +48,17 @@ describe("ForecastRepository", () => {
     expect(query.mock.calls[0]?.[0]).toContain(
       "ON CONFLICT",
     );
+    expect(query.mock.calls[0]?.[0]).toContain(
+      "forecast_for",
+    );
+    expect(query.mock.calls[0]?.[0]).toContain(
+      "DO UPDATE SET",
+    );
   });
 
-  it("ignores an exact duplicate forecast", async () => {
+  it("updates an existing forecast when the generation time changes", async () => {
     const query = vi.fn().mockResolvedValue({
-      rowCount: 0,
+      rowCount: 1,
     });
 
     const db = {
@@ -61,30 +67,58 @@ describe("ForecastRepository", () => {
 
     const repository = new ForecastRepository(db);
 
-    await repository.insertForecast(createForecast());
+    await repository.insertForecast(
+      createForecast({
+        generatedAt: new Date(
+          "2026-11-10T06:25:11.499Z",
+        ),
+      }),
+    );
 
     expect(query).toHaveBeenCalledTimes(1);
-    expect(query.mock.results[0]?.value).toBeDefined();
+
+    const sql = query.mock.calls[0]?.[0] as string;
+
+    expect(sql).toContain(
+      "ON CONFLICT (",
+    );
+    expect(sql).toContain(
+      "source",
+    );
+    expect(sql).toContain(
+      "location_id",
+    );
+    expect(sql).toContain(
+      "forecast_for",
+    );
+    expect(sql).toContain(
+      "pollutant",
+    );
+    expect(sql).toContain(
+      "generated_at = EXCLUDED.generated_at",
+    );
   });
 
   it("returns zero for an empty batch", async () => {
     const query = vi.fn();
+    const connect = vi.fn();
 
     const db = {
       query,
-      connect: vi.fn(),
+      connect,
     } as unknown as Pool;
 
     const repository = new ForecastRepository(db);
 
-    const inserted =
+    const affected =
       await repository.insertForecasts([]);
 
-    expect(inserted).toBe(0);
+    expect(affected).toBe(0);
     expect(query).not.toHaveBeenCalled();
+    expect(connect).not.toHaveBeenCalled();
   });
 
-  it("inserts a batch transactionally", async () => {
+  it("upserts a batch transactionally", async () => {
     const query = vi.fn().mockResolvedValue({
       rowCount: 1,
     });
@@ -112,21 +146,35 @@ describe("ForecastRepository", () => {
       }),
     ];
 
-    const inserted =
+    const affected =
       await repository.insertForecasts(forecasts);
 
-    expect(inserted).toBe(3);
-    expect(query.mock.calls[0]?.[0]).toBe("BEGIN");
+    expect(affected).toBe(3);
+
+    expect(query.mock.calls[0]?.[0]).toBe(
+      "BEGIN",
+    );
+
     expect(query.mock.calls[1]?.[0]).toContain(
       "INSERT INTO forecasts",
     );
+
+    expect(query.mock.calls[1]?.[0]).toContain(
+      "DO UPDATE SET",
+    );
+
     expect(query.mock.calls[2]?.[0]).toContain(
-      "INSERT INTO forecasts",
+      "DO UPDATE SET",
     );
+
     expect(query.mock.calls[3]?.[0]).toContain(
-      "INSERT INTO forecasts",
+      "DO UPDATE SET",
     );
-    expect(query.mock.calls[4]?.[0]).toBe("COMMIT");
+
+    expect(query.mock.calls[4]?.[0]).toBe(
+      "COMMIT",
+    );
+
     expect(client.release).toHaveBeenCalledTimes(1);
   });
 });

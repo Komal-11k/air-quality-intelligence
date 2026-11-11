@@ -42,11 +42,17 @@ export class ForecastRepository {
         ON CONFLICT (
           source,
           location_id,
-          generated_at,
           forecast_for,
           pollutant
         )
-        DO NOTHING
+        DO UPDATE SET
+          generated_at = EXCLUDED.generated_at,
+          predicted_value = EXCLUDED.predicted_value,
+          unit = EXCLUDED.unit,
+          model_version = EXCLUDED.model_version,
+          prediction_lower = EXCLUDED.prediction_lower,
+          prediction_upper = EXCLUDED.prediction_upper,
+          raw_data = EXCLUDED.raw_data
       `,
       [
         forecast.locationId,
@@ -76,7 +82,7 @@ export class ForecastRepository {
     try {
       await client.query("BEGIN");
 
-      let inserted = 0;
+      let affected = 0;
 
       for (const forecast of forecasts) {
         const result = await client.query(
@@ -110,11 +116,17 @@ export class ForecastRepository {
             ON CONFLICT (
               source,
               location_id,
-              generated_at,
               forecast_for,
               pollutant
             )
-            DO NOTHING
+            DO UPDATE SET
+              generated_at = EXCLUDED.generated_at,
+              predicted_value = EXCLUDED.predicted_value,
+              unit = EXCLUDED.unit,
+              model_version = EXCLUDED.model_version,
+              prediction_lower = EXCLUDED.prediction_lower,
+              prediction_upper = EXCLUDED.prediction_upper,
+              raw_data = EXCLUDED.raw_data
           `,
           [
             forecast.locationId,
@@ -131,12 +143,12 @@ export class ForecastRepository {
           ],
         );
 
-        inserted += result.rowCount ?? 0;
+        affected += result.rowCount ?? 0;
       }
 
       await client.query("COMMIT");
 
-      return inserted;
+      return affected;
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
