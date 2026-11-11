@@ -43,21 +43,21 @@ export const api = {
     query: LocationsQuery = {},
   ): Promise<LocationsResponse> {
     const params = new URLSearchParams();
-  
+
     if (query.search?.trim()) {
       params.set("search", query.search.trim());
     }
-  
+
     if (query.limit !== undefined) {
       params.set("limit", String(query.limit));
     }
-  
+
     if (query.offset !== undefined) {
       params.set("offset", String(query.offset));
     }
-  
+
     const queryString = params.toString();
-  
+
     const response = await fetch(
       `${API_BASE_URL}/locations${queryString ? `?${queryString}` : ""}`,
       {
@@ -68,13 +68,13 @@ export const api = {
         cache: "no-store",
       },
     );
-  
+
     if (!response.ok) {
       throw new Error(
         `Failed to fetch locations: ${response.status} ${response.statusText}`,
       );
     }
-  
+
     return response.json() as Promise<LocationsResponse>;
   },
   async getCurrentAqiByCoordinates(
@@ -85,7 +85,7 @@ export const api = {
       latitude: String(latitude),
       longitude: String(longitude),
     });
-  
+
     const response = await fetch(
       `${API_BASE_URL}/aqi/current?${params.toString()}`,
       {
@@ -96,13 +96,13 @@ export const api = {
         cache: "no-store",
       },
     );
-  
+
     if (!response.ok) {
       throw new Error(
         `Failed to fetch location AQI: ${response.status} ${response.statusText}`,
       );
     }
-  
+
     return response.json() as Promise<CoordinateAqiResponse>;
   },
   async getMeasurementHistory(
@@ -110,25 +110,25 @@ export const api = {
     query: HistoryQuery = {},
   ): Promise<HistoryResponse> {
     const params = new URLSearchParams();
-  
+
     if (query.from) {
       params.set("from", query.from);
     }
-  
+
     if (query.to) {
       params.set("to", query.to);
     }
-  
+
     if (query.pollutant) {
       params.set("pollutant", query.pollutant);
     }
-  
+
     if (query.limit !== undefined) {
       params.set("limit", String(query.limit));
     }
-  
+
     const queryString = params.toString();
-  
+
     const response = await fetch(
       `${API_BASE_URL}/locations/${locationId}/history${
         queryString ? `?${queryString}` : ""
@@ -141,15 +141,15 @@ export const api = {
         cache: "no-store",
       },
     );
-  
+
     if (!response.ok) {
       throw new Error(
         `Failed to fetch measurement history: ${response.status} ${response.statusText}`,
       );
     }
-  
+
     const data = await response.json();
-  
+
     return {
       value: Array.isArray(data?.value) ? data.value : [],
       Count:
@@ -167,7 +167,7 @@ export const api = {
       locationId: query.locationId,
       hours: String(query.hours ?? 24),
     });
-  
+
     const response = await fetch(
       `${API_BASE_URL}/forecast?${params.toString()}`,
       {
@@ -178,20 +178,20 @@ export const api = {
         cache: "no-store",
       },
     );
-  
+
     if (!response.ok) {
       throw new Error(
         `Failed to fetch forecast: ${response.status} ${response.statusText}`,
       );
     }
-  
+
     return response.json() as Promise<ForecastResponse>;
   },
   async getHealthAdvice(
     query: HealthAdviceQuery,
   ): Promise<HealthAdviceResponse> {
     const params = new URLSearchParams();
-  
+
     if (query.locationId) {
       params.set("locationId", query.locationId);
     } else if (
@@ -205,7 +205,7 @@ export const api = {
         "Health advice requires either a locationId or coordinates.",
       );
     }
-  
+
     const response = await fetch(
       `${API_BASE_URL}/health/advice?${params.toString()}`,
       {
@@ -216,14 +216,54 @@ export const api = {
         cache: "no-store",
       },
     );
-  
+
     if (!response.ok) {
       throw new Error(
         `Failed to fetch health advice: ${response.status} ${response.statusText}`,
       );
     }
-  
+
     return response.json() as Promise<HealthAdviceResponse>;
+  },
+
+  async compareLocations(
+    locationIds: string[],
+  ): Promise<ComparisonLocation[]> {
+    const response = await fetch(
+      `${API_BASE_URL}/comparison?locationIds=${encodeURIComponent(
+        locationIds.join(","),
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to compare locations: ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const data: unknown = await response.json();
+
+    if (Array.isArray(data)) {
+      return data as ComparisonLocation[];
+    }
+
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "value" in data &&
+      Array.isArray(data.value)
+    ) {
+      return data.value as ComparisonLocation[];
+    }
+
+    throw new Error("Invalid comparison response from API.");
   },
 };
 export type Location = {
@@ -239,14 +279,14 @@ export type Location = {
     createdAt: string;
     updatedAt: string;
   };
-  
+
   export type LocationsResponse = {
     locations: Location[];
     count: number;
     limit: number;
     offset: number;
   };
-  
+
   export type LocationsQuery = {
     search?: string;
     limit?: number;
@@ -261,12 +301,12 @@ export type Location = {
     unit: string;
     source: string;
   };
-  
+
   export type HistoryResponse = {
     value: HistoryMeasurement[];
     Count: number;
   };
-  
+
   export type HistoryQuery = {
     from?: string;
     to?: string;
@@ -287,12 +327,12 @@ export type Location = {
     predictedValue: number;
     unit: string;
   };
-  
+
   export type ForecastResponse = {
     locationId: string;
     forecast: ForecastPoint[];
   };
-  
+
   export type ForecastQuery = {
     locationId: string;
     hours?: number;
@@ -302,37 +342,65 @@ export type Location = {
     level: "normal" | "caution" | "reduce" | "avoid";
     recommendation: string;
   };
-  
+
   export type HealthAdviceResponse = {
     aqi: number;
     category: string;
     dominantPollutant: string;
-  
+
     overallMessage: string;
-  
+
     generalPublic: string[];
     sensitiveGroups: string[];
-  
+
     outdoorActivity: HealthOutdoorActivity;
-  
+
     precautions: string[];
-  
+
     pollutantAdvice: {
       pollutant: string;
       message: string;
     };
-  
+
     source: string;
     dataType: "ACTUAL" | "ESTIMATED" | "FORECAST";
     measuredAt: string;
-  
+
     disclaimer: string;
   };
-  
+
   export type HealthAdviceQuery = {
     locationId?: string;
     latitude?: number;
     longitude?: number;
+  };
+
+  export type ComparisonMeasurement = {
+    pollutant: string;
+    value: number;
+    unit: string;
+    source: string;
+    dataType: "ACTUAL";
+    measuredAt: string;
+  };
+
+  export type ComparisonLocation = {
+    locationId: string;
+    name: string;
+    city: string | null;
+    region: string | null;
+    country: string | null;
+    source: string;
+    dataType: "ACTUAL";
+    aqi: number | null;
+    category: string | null;
+    dominantPollutant: string | null;
+    measurements: ComparisonMeasurement[];
+  };
+
+  export type ComparisonResponse = {
+    value: ComparisonLocation[];
+    Count: number;
   };
 
   export type DashboardAqiResponse =

@@ -1,5 +1,8 @@
 import { db } from "../../infrastructure/database/client.js";
-import { calculateAqi } from "./aqi.service.js";
+import {
+  calculateAqi,
+  convertToAqiUnit,
+} from "./aqi.service.js";
 import type { AqiInput } from "./aqi.schema.js";
 import { getCurrentAirQualityByCoordinates } from "../../infrastructure/external-apis/openmeteo.client.js";
 
@@ -31,29 +34,35 @@ export const calculateCurrentAqi = async (locationId: string) => {
   const input: AqiInput = {};
 
   for (const row of result.rows) {
+    const value = convertToAqiUnit(
+      row.pollutant,
+      row.value,
+      row.unit,
+    );
+
     switch (row.pollutant) {
       case "PM2.5":
-        input.pm25 = row.value;
+        input.pm25 = value;
         break;
 
       case "PM10":
-        input.pm10 = row.value;
+        input.pm10 = value;
         break;
 
       case "NO2":
-        input.no2 = row.value;
+        input.no2 = value;
         break;
 
       case "SO2":
-        input.so2 = row.value;
+        input.so2 = value;
         break;
 
       case "CO":
-        input.co = row.value;
+        input.co = value;
         break;
 
       case "O3":
-        input.o3 = row.value;
+        input.o3 = value;
         break;
     }
   }
