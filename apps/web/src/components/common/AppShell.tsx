@@ -11,7 +11,6 @@ const navigation = [
   { href: "/compare", label: "Compare" },
   { href: "/health", label: "Health" },
   { href: "/forecast", label: "Forecast" },
-  { href: "/assistant", label: "Assistant" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
